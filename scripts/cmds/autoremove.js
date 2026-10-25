@@ -85,12 +85,12 @@ module.exports = {
     try {
       threadInfo = await api.getThreadInfo(threadID);
     } catch (err) {
-      return message.reply("❌ Hindi makuha ang group member list ngayon. Subukan ulit mamaya.");
+      return message.reply("hindi makuha ang group member list ngayon. Subukan ulit mamaya.");
     }
 
     const adminIDs = threadInfo.adminIDs || [];
     if (!isAdmin(adminIDs, botID)) {
-      return message.reply("❌ Kailangan munang gawing group admin ang bot bago gamitin ang command na ito.");
+      return message.reply("kailangan munang gawing group admin ang bot bago gamitin ang command na ito.");
     }
 
     const key = pendingKey(threadID, senderID);
@@ -98,7 +98,7 @@ module.exports = {
       const pending = pendingRemovals.get(key);
       if (!pending || pending.expiresAt < Date.now()) {
         pendingRemovals.delete(key);
-        return message.reply("⚠️ Wala nang pending preview. Gamitin muna ang `/autoremove`.");
+        return message.reply("wala nang pending preview. Gamitin muna ang `/autoremove`.");
       }
 
       const currentCandidates = getCandidates(threadInfo, botID)
@@ -106,20 +106,20 @@ module.exports = {
       pendingRemovals.delete(key);
 
       if (currentCandidates.length === 0) {
-        return message.reply("✅ Wala nang valid na `Facebook User` candidate na aalisin.");
+        return message.reply("ubos na");
       }
 
       const { removed, failed } = await removeCandidates(api, threadID, currentCandidates);
-      let result = `✅ Na-remove: ${removed.length}`;
+      let result = `na remove: ${removed.length}`;
       if (failed.length > 0) {
-        result += `\n❌ Hindi na-remove: ${failed.length}\n${failed.map(user => `• ${user.name} (${user.id})`).join("\n")}`;
+        result += `\nhindi naremove: ${failed.length}\n${failed.map(user => `• ${user.name} (${user.id})`).join("\n")}`;
       }
       return message.reply(result);
     }
 
     const candidates = getCandidates(threadInfo, botID);
     if (candidates.length === 0) {
-      return message.reply("✅ Walang exact na `Facebook User` account na nakita sa group.");
+      return message.reply("walang exact na `Facebook User` account na nakita sa group.");
     }
 
     pendingRemovals.set(key, {
@@ -128,9 +128,9 @@ module.exports = {
     });
 
     return message.reply(
-      `⚠️ Nakita ko ang ${candidates.length} exact na \`Facebook User\` candidate(s):\n`
+      `nakita ko ang ${candidates.length} exact na \`Facebook User\` candidate(s):\n`
       + `${formatCandidateList(candidates)}\n\n`
-      + "Kung tama ang listahan, gamitin ang `/autoremove confirm` sa loob ng 5 minuto."
+      + "kung tama boss ang listahan, icommand moko sipain ko sila lahat dito sa gc mo"
     );
   }
 };
