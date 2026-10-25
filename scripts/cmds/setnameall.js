@@ -24,28 +24,28 @@ module.exports = {
 
   onStart: async function ({ api, event, args, message }) {
     const { threadID, senderID } = event;
-    if (!threadID || !senderID) return message.reply("Hindi ko matukoy ang kasalukuyang GC o ang nagpatakbo ng command.");
-    if (event.isGroup === false) return message.reply("Magagamit lang ang command na ito sa group chat.");
+    if (!threadID || !senderID) return message.reply("❎");
+    if (event.isGroup === false) return message.reply("sa gc lang to");
 
     let threadInfo;
     try {
       threadInfo = await api.getThreadInfo(threadID);
     } catch (_) {
-      return message.reply("Hindi ko makuha ang listahan ng members at nickname ng GC. Subukan ulit mamaya.");
+      return message.reply("di ko makuha");
     }
 
     const participants = getParticipants(threadInfo);
     if (event.isGroup !== true && participants.length <= 2) {
-      return message.reply("Magagamit lang ang command na ito sa group chat.");
+      return message.reply("sa gc lang to");
     }
 
     if (!isAdmin(threadInfo.adminIDs, senderID)) {
-      return message.reply("Mga admin lang ng GC ang puwedeng magpalit o mag-alis ng nickname ng lahat.");
+      return message.reply("mga admin lang pwede gumamit neto");
     }
 
-    if (participants.length === 0) return message.reply("Walang nakuhang member sa GC na ito.");
+    if (participants.length === 0) return message.reply("❎");
     if (runningThreads.has(String(threadID))) {
-      return message.reply("May ginagawa nang pagbabago ng nickname sa GC na ito. Hintayin munang matapos.");
+      return message.reply("hintay ka muna");
     }
 
     const nickname = (args || []).join(" ").trim();
@@ -59,7 +59,7 @@ module.exports = {
           changed++;
         } catch (err) {
           failed++;
-          console.error("[setnameall] hindi nabago ang isang nickname:", err?.message || "unknown error");
+          console.error("[setnameall] di nabago ang isang nickname:", err?.message || "unknown error");
         }
       }
     } finally {
@@ -67,10 +67,10 @@ module.exports = {
     }
 
     const result = nickname
-      ? `Itinakda ang nickname na "${nickname}" sa ${changed} member(s).`
-      : `Na-clear ang nickname ng ${changed} member(s).`;
+      ? `✅ "${nickname}" sa ${changed} member(s).`
+      : `na clear ang nickname ng ${changed} member(s).`;
     return message.reply(failed
-      ? `${result}\nHindi nabago: ${failed} member(s); maaaring kulang ang bot sa permission.`
+      ? `${result}\nhindi nabago: ${failed} member(s); kulang ata ang bot sa permission.`
       : result);
   }
 };
