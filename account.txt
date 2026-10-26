@@ -1,4 +1,4 @@
-[
+
 	{
 		"key": "sb",
 		"value": "oYzQarHXsZln4CfzLfwwuFN-",
