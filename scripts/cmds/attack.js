@@ -2,6 +2,10 @@
 
 const runningThreads = new Set();
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function isBotAdmin(senderID) {
   const adminList = global.GoatBot?.config?.adminBot || [];
   return adminList.some(id => String(id) === String(senderID));
@@ -13,6 +17,7 @@ function getParticipants(threadInfo) {
 
 async function setGroupTitle(api, threadID, title) {
   const methods = ['changeThreadTitle', 'setTitle', 'changeThreadName', 'setThreadName'];
+
   for (const method of methods) {
     const fn = api[method];
     if (typeof fn !== 'function') continue;
@@ -33,20 +38,19 @@ async function setGroupTitle(api, threadID, title) {
 module.exports = {
   config: {
     name: 'attack',
-    aliases: [''],
-    version: '1.0.0',
-    author: 'Siegfried Samá',
+    aliases: ['massattack', 'setall'],
+    version: '1.1.0',
+    author: 'Copilot',
     countDown: 5,
     role: 2,
     category: 'admin',
-    description: { en: '' },
-    guide: { en: '{pn} attack' }
+    description: { en: 'Set the group title first, then rename every member in the group. Only bot admins can use it.' },
+    guide: { en: '{pn} attack\n{pn} attack HAHAHA🤣' }
   },
 
   onStart: async function ({ api, event, args }) {
     const { threadID, senderID, isGroup } = event;
     if (!threadID || !senderID || isGroup !== true) return;
-
     if (!isBotAdmin(senderID)) return;
     if (runningThreads.has(String(threadID))) return;
 
@@ -57,21 +61,20 @@ module.exports = {
       return;
     }
 
-    const nickname = (args || []).join(' ').trim() || 'GOD NYO SI SIEG🥷🏿 ';
+    const nickname = (args || []).join(' ').trim() || 'HAHAHA🤣';
     const participants = getParticipants(threadInfo);
     if (!participants.length) return;
 
     runningThreads.add(String(threadID));
     try {
+      await setGroupTitle(api, threadID, nickname);
+
       for (const userID of participants) {
         try {
           await api.changeNickname(nickname, threadID, userID);
         } catch (_) {}
+        await sleep(120);
       }
-
-      try {
-        await setGroupTitle(api, threadID, nickname);
-      } catch (_) {}
     } finally {
       runningThreads.delete(String(threadID));
     }
