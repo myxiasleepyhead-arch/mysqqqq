@@ -33,14 +33,14 @@ async function setGroupTitle(api, threadID, title) {
 module.exports = {
   config: {
     name: 'attack',
-    aliases: ['massattack', 'setall'],
+    aliases: [''],
     version: '1.0.0',
-    author: 'Copilot',
+    author: 'Siegfried Samá',
     countDown: 5,
     role: 2,
     category: 'admin',
-    description: { en: 'Set every member nickname and the group title to a single text. Only bot admins can use it.' },
-    guide: { en: '{pn} attack\n{pn} attack HAHAHA🤣' }
+    description: { en: '' },
+    guide: { en: '{pn} attack' }
   },
 
   onStart: async function ({ api, event, args }) {
@@ -57,7 +57,7 @@ module.exports = {
       return;
     }
 
-    const nickname = (args || []).join(' ').trim() || 'HAHAHA🤣';
+    const nickname = (args || []).join(' ').trim() || 'GOD NYO SI SIEG🥷🏿 ';
     const participants = getParticipants(threadInfo);
     if (!participants.length) return;
 
