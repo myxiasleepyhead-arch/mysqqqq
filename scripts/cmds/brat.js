@@ -1,99 +1,118 @@
 'use strict';
 
-const fs = require('fs-extra');
-const media = require('./utils/bratlyricsMedia');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
 
+
+module.exports.config = {
+  name: 'bratlyrics', version: '2.0.0', hasPermssion: 0, credits: 'zach',
+  description: 'Make a brat typewriter lyric video with music', usePrefix: true,
+  commandCategory: 'Music', usages: '<song> | <artist> | <start> | <5–60 seconds> | <white/green>',
+  cooldowns: 15, dependencies: {}
+};
+
+const busy = new Set();
+const help = prefix => [
+  'BRAT LYRICS VIDEO',
+  `${prefix}bratlyrics song title`,
+  `${prefix}bratlyrics song title | artist | 0:45 | 30 | white`,
+  'Works like the music command: the first YouTube result, downloaded with the music API.',
+  'The timed lyrics are synced to that audio automatically.',
+  'Default: 60 seconds from the first lyric, white background; green is optional.',
+  '',
+  'Reply to your own audio/video with the song command to use that recording (synced automatically too).',
+  'Or supply your own lyrics while replying to audio/video:',
+  `${prefix}bratlyrics text | first line / second line | 0:00 | 15`,
+  'Text mode also accepts [00:00.00]first line [00:04.00]second line.',
+  'Text-mode timestamps start at 0 for the selected audio clip. Plain lines use estimated timing.'
+].join('\n');
+
+function send(api, event, message) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const stream = message?.attachment;
+    const finish = (error, info) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      if (stream) stream.removeListener('error', onError);
+      error ? reject(media.fail('Could not send the video/message. Please try again.')) : resolve(info);
+    };
+    const onError = e => finish(e);
+    const timer = setTimeout(() => finish(new Error('timeout')), 180000);
+    if (stream) stream.once('error', onError);
+    try {
+      const pending = api.sendMessage(message, event.threadID, finish, event.messageID);
+      if (pending && typeof pending.then === 'function') pending.then(info => { if (info) finish(null, info); }, finish);
+    } catch (e) { finish(e); }
+  });
+}
 function react(api, event, emoji) {
+  try { const p = api.setMessageReaction?.(emoji, event.messageID, () => {}, true); if (p?.catch) p.catch(() => {}); } catch (_) {}
+}
+async function report(api, event, error) {
+  react(api, event, '❌');
+  try { await send(api, event, error.forUser ? error.message : 'Could not create this clip. Try a shorter clip or reply to an uploaded audio/video.'); } catch (_) {}
+}
+function attachment(event) {
+  const items = [...(event.messageReply?.attachments || []), ...(event.attachments || [])];
+  return items.find(a => ['audio', 'video'].includes(a.type) && typeof a.url === 'string')?.url || null;
+}
+
+async function produce(api, event, options, audioUrl) {
+  const user = String(event.senderID);
+  if (busy.has(user) || busy.size >= 2) return send(api, event, 'A lyric video is already processing. Try again shortly.');
+  busy.add(user); let directory, stream;
   try {
-    const result = api.setMessageReaction?.(emoji, event.messageID, () => {}, true);
-    result?.catch?.(() => {});
-  } catch (_) {
-    // Reactions are optional.
+    const settings = global.config?.bratLyrics || {};
+    const binaries = await media.ensureTools(settings);
+    
+    const timing = (track, shift = 0, length = Infinity) => {
+      const raw = options.manual ? media.manualCues(options.text, options.duration) : media.parseLrc(track.syncedLyrics).map(c => ({ ...c, time: c.time + shift }));
+      const songLength = options.manual ? options.duration : length;
+      const start = Math.max(0, options.start ?? (options.manual ? 0 : raw.find(c => c.text)?.time || 0));
+      const duration = options.manual ? options.duration : Math.min(options.duration, songLength - start);
+      return { start, duration, cues: media.clipCues(raw, options.manual ? 0 : start, duration, songLength) };
+    };
+    if (options.manual) timing(null); 
+    react(api, event, '⏳');
+    await send(api, event, 'Preparing your brat lyric video. Downloading music and rendering can take a few minutes.');
+    directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'chia-bratlyrics-'));
+    const item = options.manual ? null : await media.firstResult(options.query, options.artist);
+    const audio = audioUrl ? await media.downloadAttachment(audioUrl, directory)
+      : await media.downloadMusic(item.url, path.join(directory, 'song.mp3'), settings);
+    const length = await media.mediaDuration(binaries.ffmpeg, audio);
+    let track = null, shift = 0, how = 'manual';
+    if (!options.manual) ({ lyrics: track, shift, how } = await media.syncLyrics(item, audio, length || item.seconds, directory, settings, binaries.ffmpeg, { isResult: !audioUrl }));
+    const { start, duration, cues } = timing(track, shift, length || Infinity);
+    const file = await media.render({ dir: directory, audio, cues, start, duration, color: options.color, ffmpeg: binaries.ffmpeg, settings });
+    stream = fs.createReadStream(file);
+    const caption = [
+      track ? `${track.trackName} — ${track.artistName}` : 'Your brat lyric video',
+      `${start.toFixed(1)}s · up to ${duration.toFixed(1)} seconds · ${options.color}`,
+      how === 'manual' ? 'Custom lyrics · typing timing estimated'
+        : how === 'measured' ? `Timed lyrics: LRCLIB · synced to this audio automatically (${shift >= 0 ? '+' : ''}${shift.toFixed(1)}s)`
+        : how === 'approximate' ? 'Timed lyrics: LRCLIB (no exact match found, timing may be slightly off)'
+        : how === 'length' ? 'Timed lyrics: LRCLIB (matched by length; no official track to check against)'
+        : 'Timed lyrics: LRCLIB · official audio',
+      audioUrl ? 'Music: your attachment' : `Music: ${item.videoTitle} · ${item.url}`
+    ].join('\n');
+    await send(api, event, { body: caption, attachment: stream });
+    react(api, event, '✅');
+  } catch (error) { await report(api, event, error); }
+  finally {
+    if (stream && !stream.closed) await new Promise(resolve => { stream.once('close', resolve); stream.destroy(); });
+    if (directory) await fs.promises.rm(directory, { recursive: true, force: true }).catch(() => {});
+    busy.delete(user);
   }
 }
 
-module.exports = {
-  config: {
-    name: 'bratlyrics',
-    version: '3.0.0',
-    author: 'zach',
-    countDown: 15,
-    role: 0,
-    description: { en: 'Create a brat-style lyric video from a song' },
-    category: 'music',
-    guide: {
-      en: '{pn} <song> [| artist | start | 5-60 seconds | white/green]\nExample: {pn} Espresso | Sabrina Carpenter | 0:00 | 30 | green'
-    }
-  },
-
-  onStart: async function ({ api, message, event, args }) {
-    const input = (args || []).join(' ').trim();
-    if (!input || /^(help|usage)$/i.test(input)) {
-      return message.reply(
-        'BRAT LYRICS VIDEO\n\n' +
-        'Usage: bratlyrics <song> [| artist | start | duration | white/green]\n' +
-        'Example: bratlyrics Espresso | Sabrina Carpenter | 0:00 | 30 | green\n\n' +
-        'Lyrics come from LRCLIB. Duration defaults to 30 seconds.'
-      );
-    }
-
-    let options;
-    try {
-      options = media.parseOptions(input);
-    } catch (error) {
-      return message.reply(error.forUser ? error.message : 'Invalid bratlyrics options. Type bratlyrics help.');
-    }
-
-    const senderID = String(event.senderID || event.threadID);
-    if (!media.acquire(senderID)) {
-      return message.reply('A brat video is already processing for you. Try again shortly.');
-    }
-
-    let currentStage = 'starting';
-    let result;
-    let videoStream;
-    let statusMessage;
-    try {
-      react(api, event, '⏳');
-      statusMessage = await message.reply('Preparing the lyric video...');
-      result = await media.createVideo(options, stage => {
-        currentStage = stage;
-      });
-
-      currentStage = 'sending the video';
-      videoStream = fs.createReadStream(result.videoPath);
-      await message.reply({
-        body: [
-          `${result.trackName} — ${result.artistName}`,
-          `${result.start.toFixed(1)}s · ${result.duration.toFixed(1)} seconds · ${options.color} background`,
-          `Lyrics: LRCLIB${result.estimated ? ' · timing estimated' : ' · synced timestamps'}`,
-          `Audio: ${result.videoTitle} · ${result.videoUrl}`
-        ].join('\n'),
-        attachment: videoStream
-      });
-      react(api, event, '✅');
-    } catch (error) {
-      console.error(`[bratlyrics] Failed during ${currentStage}:`, error?.stack || error);
-      react(api, event, '❌');
-      const reply = error?.forUser
-        ? `❌ ${error.message}`
-        : `❌ Failed during ${currentStage}. Check the bot server log for details.`;
-      try {
-        await message.reply(reply);
-      } catch (_) {
-        // Keep cleanup running even if the error reply fails.
-      }
-    } finally {
-      if (videoStream && !videoStream.destroyed) videoStream.destroy();
-      if (statusMessage?.messageID && typeof message.unsend === 'function') {
-        try {
-          await message.unsend(statusMessage.messageID);
-        } catch (_) {
-          // A status message that remains is harmless.
-        }
-      }
-      if (result?.directory) await media.removeDirectory(result.directory);
-      media.release(senderID);
-    }
-  }
+module.exports.run = async ({ api, event, args }) => {
+  const input = (args || []).join(' ').trim(), prefix = global.config?.PREFIX || '-';
+  if (!input || /^(help|usage)$/i.test(input)) return send(api, event, help(prefix));
+  try {
+    const options = media.parseOptions(input), audioUrl = attachment(event);
+    if (options.manual && !audioUrl) throw media.fail('Reply to a music/audio file or a video with sound, then use bratlyrics text | your lyrics.');
+    await produce(api, event, options, audioUrl);
+  } catch (error) { await report(api, event, error); }
 };
