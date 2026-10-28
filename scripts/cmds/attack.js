@@ -42,64 +42,41 @@ module.exports = {
 
   onStart: async function ({ api, event, args, message }) {
     const { threadID, senderID, isGroup } = event;
-    if (!threadID || !senderID) return message.reply('❎');
-    if (isGroup !== true) return message.reply('GC lang to');
+    if (!threadID || !senderID) return;
+    if (isGroup !== true) return;
 
     let threadInfo;
     try {
       threadInfo = await api.getThreadInfo(threadID);
     } catch (_) {
-      return message.reply('di ko makuha ang info ng GC');
+      return;
     }
 
     if (!isAdmin(threadInfo?.adminIDs, senderID)) {
-      return message.reply('admin lang pwede gumamit neto');
+      return;
     }
 
     if (runningThreads.has(String(threadID))) {
-      return message.reply('hintay ka muna');
+      return;
     }
 
     const nickname = (args || []).join(' ').trim() || 'HAHAHA🤣';
     const participants = getParticipants(threadInfo);
-    if (!participants.length) return message.reply('❎');
+    if (!participants.length) return;
 
     runningThreads.add(String(threadID));
-    let changed = 0;
-    let failed = 0;
-
     try {
       for (const userID of participants) {
         try {
           await api.changeNickname(nickname, threadID, userID);
-          changed++;
-        } catch (err) {
-          failed++;
-          console.error('[attack] nickname failed:', userID, err?.message || err);
-        }
+        } catch (_) {}
       }
 
       try {
-        const titleUpdated = await setGroupTitle(api, threadID, nickname);
-        if (!titleUpdated) {
-          failed++;
-        }
-      } catch (err) {
-        failed++;
-        console.error('[attack] group title failed:', err?.message || err);
-      }
+        await setGroupTitle(api, threadID, nickname);
+      } catch (_) {}
     } finally {
       runningThreads.delete(String(threadID));
     }
-
-    const result = nickname
-      ? `✅ "${nickname}" set sa ${changed} member(s) at group title.`
-      : '✅ cleared na ang lahat.';
-
-    if (failed > 0) {
-      return message.reply(`${result}\nMay ${failed} failed na update; baka walang permission ang bot.`);
-    }
-
-    return message.reply(result);
   }
 };
