@@ -1,8 +1,7 @@
 'use strict';
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
+const fs = require('fs-extra');
+const path = require('path');
 const media = require('./bratMedia');
 
 const busyUsers = new Set();
@@ -52,7 +51,7 @@ async function produce({ api, message, event, options, audioUrl }) {
       'teka lang'
     );
 
-    directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'goatbot-bratlyrics-'));
+    directory = await fs.mkdtemp(path.join(process.env.TMPDIR || '/tmp', 'goatbot-bratlyrics-'));
 
     const item = options.manual
       ? null
@@ -142,7 +141,7 @@ async function produce({ api, message, event, options, audioUrl }) {
       }
     }
     if (directory) {
-      await fs.promises.rm(directory, { recursive: true, force: true }).catch(() => {});
+      await fs.remove(directory).catch(() => {});
     }
     busyUsers.delete(userID);
   }
