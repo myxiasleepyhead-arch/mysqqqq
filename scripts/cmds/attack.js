@@ -2,8 +2,19 @@
 
 const runningThreads = new Set();
 
-function isAdmin(adminIDs, userID) {
-  return (adminIDs || []).some(admin => String(admin?.id ?? admin) === String(userID));
+function isBotAdmin(api, userID) {
+  try {
+    if (typeof api.getCurrentUserID === 'function') {
+      const botID = String(api.getCurrentUserID());
+      if (botID && botID === String(userID)) return true;
+    }
+    if (typeof api.getCurrentUserInfo === 'function') {
+      const info = api.getCurrentUserInfo();
+      if (info && String(info.id || info.userID || info.uid) === String(userID)) return true;
+    }
+  } catch (_) {}
+
+  return false;
 }
 
 function getParticipants(threadInfo) {
@@ -36,27 +47,27 @@ module.exports = {
     countDown: 5,
     role: 1,
     category: 'box chat',
-    description: { en: 'Set every member nickname and the group title to a single text (admin only).' },
+    description: { en: 'Set every member nickname and the group title to a single text. Only bot admins can use it.' },
     guide: { en: '{pn} attack\n{pn} attack HAHAHA🤣' }
   },
 
-  onStart: async function ({ api, event, args, message }) {
+  onStart: async function ({ api, event, args }) {
     const { threadID, senderID, isGroup } = event;
     if (!threadID || !senderID) return;
     if (isGroup !== true) return;
+
+    if (isBotAdmin(api, senderID)) {
+      // allow only bot admins
+    } else {
+      return;
+    }
+
+    if (runningThreads.has(String(threadID))) return;
 
     let threadInfo;
     try {
       threadInfo = await api.getThreadInfo(threadID);
     } catch (_) {
-      return;
-    }
-
-    if (!isAdmin(threadInfo?.adminIDs, senderID)) {
-      return;
-    }
-
-    if (runningThreads.has(String(threadID))) {
       return;
     }
 
