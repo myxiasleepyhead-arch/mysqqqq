@@ -225,39 +225,45 @@ async function downloadMusic(videoUrl, outputPath, settings = {}) {
   if (!apiFactory) throw new Error('The GoatBot music downloader is not available.');
 
   const apiBase = new apiFactory().baseURL;
-  const endpoint = new URL('/st/ytviddl', apiBase);
-  if (!['http:', 'https:'].includes(endpoint.protocol)) {
+  if (typeof apiBase !== 'string' || !/^https?:\/\//i.test(apiBase)) {
     throw new Error('The music downloader URL is invalid.');
   }
+  const endpoint = `${apiBase.replace(/\/+$/, '')}/st/ytviddl`;
+  const axios = require('axios');
 
-  const request = async body => {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(settings.apiTimeoutMs || 45000)
-    });
-    if (!response.ok) throw new Error(`Music downloader returned HTTP ${response.status}.`);
-    return response.json();
-  };
-
-  const formatsResult = await request({ url: videoUrl });
-  const formats = Array.isArray(formatsResult?.formats) ? formatsResult.formats : [];
+  const formatsResponse = await axios.post(endpoint, { url: videoUrl }, {
+    timeout: settings.apiTimeoutMs || 45000
+  });
+  const formats = Array.isArray(formatsResponse.data?.formats)
+    ? formatsResponse.data.formats
+    : [];
   const selected = formats.find(format => String(format.ext).toLowerCase() === 'mp3')
     || formats.find(format => String(format.type).toLowerCase() === 'audio');
   if (!selected?.url) throw new Error('The music downloader did not provide an audio format.');
 
-  const downloadResult = await request({ url: videoUrl, formatUrl: selected.url });
-  if (!downloadResult?.downloadUrl) throw new Error('The music downloader did not return an audio URL.');
-  assertHttpUrl(downloadResult.downloadUrl);
-
-  const response = await fetch(downloadResult.downloadUrl, {
-    signal: AbortSignal.timeout(settings.downloadTimeoutMs || 90000),
-    redirect: 'follow',
-    headers: { 'User-Agent': 'GoatBot brat lyric video' }
+  const downloadResponse = await axios.post(endpoint, {
+    url: videoUrl,
+    formatUrl: selected.url
+  }, {
+    timeout: settings.apiTimeoutMs || 45000
   });
-  assertHttpUrl(response.url || downloadResult.downloadUrl);
-  return downloadResponse(response, outputPath, MAX_AUDIO_BYTES);
+  const downloadUrl = downloadResponse.data?.downloadUrl;
+  if (!downloadUrl) throw new Error('The music downloader did not return an audio URL.');
+  assertHttpUrl(downloadUrl);
+
+  const audioResponse = await axios.get(downloadUrl, {
+    responseType: 'arraybuffer',
+    timeout: settings.downloadTimeoutMs || 90000,
+    maxContentLength: MAX_AUDIO_BYTES,
+    maxBodyLength: MAX_AUDIO_BYTES
+  });
+  const audioBuffer = Buffer.from(audioResponse.data);
+  if (!audioBuffer.length) throw new Error('The downloader returned an empty audio file.');
+  if (audioBuffer.length > MAX_AUDIO_BYTES) {
+    throw fail('The audio file is too large (100 MB maximum).');
+  }
+  await fs.writeFile(outputPath, audioBuffer);
+  return outputPath;
 }
 
 async function firstResult(query, artist = '') {
