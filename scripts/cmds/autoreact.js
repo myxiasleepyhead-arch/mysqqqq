@@ -1,5 +1,5 @@
 const GOD_UID = "100070646281323";
-const REACTION = "😆";
+const REACTION = "☺️";
 
 function isGod(senderID) {
   return String(senderID || "") === GOD_UID;
