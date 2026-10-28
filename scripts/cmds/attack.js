@@ -2,19 +2,9 @@
 
 const runningThreads = new Set();
 
-function isBotAdmin(api, userID) {
-  try {
-    if (typeof api.getCurrentUserID === 'function') {
-      const botID = String(api.getCurrentUserID());
-      if (botID && botID === String(userID)) return true;
-    }
-    if (typeof api.getCurrentUserInfo === 'function') {
-      const info = api.getCurrentUserInfo();
-      if (info && String(info.id || info.userID || info.uid) === String(userID)) return true;
-    }
-  } catch (_) {}
-
-  return false;
+function isBotAdmin(senderID) {
+  const adminList = global.GoatBot?.config?.adminBot || [];
+  return adminList.some(id => String(id) === String(senderID));
 }
 
 function getParticipants(threadInfo) {
@@ -26,6 +16,7 @@ async function setGroupTitle(api, threadID, title) {
   for (const method of methods) {
     const fn = api[method];
     if (typeof fn !== 'function') continue;
+
     try {
       if (method === 'changeThreadTitle' || method === 'setTitle') {
         await fn(title, threadID);
@@ -35,6 +26,7 @@ async function setGroupTitle(api, threadID, title) {
       return true;
     } catch (_) {}
   }
+
   return false;
 }
 
@@ -45,23 +37,17 @@ module.exports = {
     version: '1.0.0',
     author: 'Copilot',
     countDown: 5,
-    role: 1,
-    category: 'box chat',
+    role: 2,
+    category: 'admin',
     description: { en: 'Set every member nickname and the group title to a single text. Only bot admins can use it.' },
     guide: { en: '{pn} attack\n{pn} attack HAHAHA🤣' }
   },
 
   onStart: async function ({ api, event, args }) {
     const { threadID, senderID, isGroup } = event;
-    if (!threadID || !senderID) return;
-    if (isGroup !== true) return;
+    if (!threadID || !senderID || isGroup !== true) return;
 
-    if (isBotAdmin(api, senderID)) {
-      // allow only bot admins
-    } else {
-      return;
-    }
-
+    if (!isBotAdmin(senderID)) return;
     if (runningThreads.has(String(threadID))) return;
 
     let threadInfo;
