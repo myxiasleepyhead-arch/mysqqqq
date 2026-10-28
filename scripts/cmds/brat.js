@@ -16,9 +16,13 @@ const commandConfig = {
   role: 0,
   countDown: 15,
   category: 'Music',
-  description: { en: 'Make a brat typewriter lyric video with music' },
+  description: {
+    en: 'Make a brat typewriter lyric video with music'
+  },
   usages: '<song> | <artist> | <start> | <5–60 seconds> | <white/green>',
-  guide: { en: '{pn}bratlyrics song title\n{pn}bratlyrics song title | artist | 0:45 | 30 | white' }
+  guide: {
+    en: '{pn}bratlyrics song title\n{pn}bratlyrics song title | artist | 0:45 | 30 | white'
+  }
 };
 
 const busy = new Set();
@@ -37,6 +41,94 @@ const help = prefix => [
   'Text-mode timestamps start at 0 for the selected audio clip. Plain lines use estimated timing.'
 ].join('\n');
 
+function parseTimeToSeconds(value) {
+  if (typeof value !== 'string') return 0;
+  const match = value.match(/^(?:(\d+):)?(\d+)(?:\.(\d+))?$/);
+  if (!match) return 0;
+  const [, minutes, secs, frac] = match;
+  const totalSeconds = Number(secs) + (minutes ? Number(minutes) * 60 : 0);
+  return Number((totalSeconds + (frac ? Number(`0.${frac}`) : 0)).toFixed(2));
+}
+
+function clampDuration(value) {
+  const num = Number(value) || 30;
+  return Math.min(60, Math.max(5, num));
+}
+
+function parseLrc(rawLrc = '') {
+  if (!rawLrc || typeof rawLrc !== 'string') return [];
+  return rawLrc
+    .split(/\r?\n/)
+    .map(line => {
+      const match = line.match(/\[(\d+):(\d+(?:\.\d+)?)\](.*)/);
+      if (!match) return null;
+      const [, min, sec, text] = match;
+      return {
+        time: Number(min) * 60 + Number(sec),
+        text: String(text || '').trim()
+      };
+    })
+    .filter(Boolean);
+}
+
+function manualCues(text, duration) {
+  if (!text || typeof text !== 'string') return [];
+  const lines = text.split(/\r?\n/).map(t => t.trim()).filter(Boolean);
+  if (!lines.length) return [];
+
+  const cues = [];
+  const timestampRegex = /\[(\d+):(\d+(?:\.\d+)?)\](.*)/;
+  const safeDuration = Number(duration) > 0 ? Number(duration) : 30;
+  let currentTime = 0;
+
+  for (const line of lines) {
+    const match = line.match(timestampRegex);
+    if (match) {
+      const [, min, sec, content] = match;
+      currentTime = Number(min) * 60 + Number(sec);
+      if (content.trim()) {
+        cues.push({
+          time: currentTime,
+          text: content.trim(),
+          duration: Math.max(2.5, Math.min(6, safeDuration / 2))
+        });
+      }
+      continue;
+    }
+
+    cues.push({
+      time: currentTime,
+      text: line,
+      duration: Math.max(2.5, Math.min(6, safeDuration / 2))
+    });
+    currentTime += 2.5;
+  }
+
+  return cues;
+}
+
+function clipCues(cues, start, duration, songLength) {
+  if (!Array.isArray(cues)) return [];
+
+  const list = cues
+    .map(c => ({ ...c, time: Number(c.time) || 0, duration: Number(c.duration) || 2.5 }))
+    .filter(c => Number.isFinite(c.time) && c.text)
+    .filter(c => c.time >= start && c.time <= (Number(songLength) || Infinity));
+
+  const maxAllowed = Math.max(0, Number(duration) || 0);
+  const output = [];
+
+  for (const c of list) {
+    const cueStart = c.time;
+    const cueEnd = cueStart + c.duration;
+    if (cueEnd < start) continue;
+    if (cueStart > start + maxAllowed) continue;
+    output.push({ ...c, time: cueStart });
+  }
+
+  return output;
+}
+
 function escapeFilterString(value) {
   return String(value)
     .replace(/\\/g, '\\\\')
@@ -53,12 +145,14 @@ function resolveBinary(binaryName) {
     `/opt/homebrew/bin/${binaryName}`,
     `C:/ffmpeg/bin/${binaryName}.exe`
   ];
+
   for (const candidate of candidates) {
     try {
       const result = spawnSync(candidate, ['-version'], { stdio: 'ignore' });
       if (result.status === 0 || result.error == null) return candidate;
     } catch (_) {}
   }
+
   return binaryName;
 }
 
@@ -66,54 +160,6 @@ function resolveFfmpeg() {
   const custom = process.env.FFMPEG_PATH || process.env.ffmpeg_path;
   if (custom) return custom;
   return resolveBinary('ffmpeg');
-}
-
-function parseLrc(rawLrc = '') {
-  if (!rawLrc || typeof rawLrc !== 'string') return [];
-  return rawLrc
-    .split(/\r?\n/)
-    .map(line => { const match = line.match(/\[(\d+):(\d+(?:\.\d+)?)\](.*)/); if (!match) return null; const [, min, sec, text] = match; return { time: Number(min) * 60 + Number(sec), text: String(text || '').trim() }; })
-    .filter(Boolean);
-}
-
-function manualCues(text, duration) {
-  if (!text || typeof text !== 'string') return [];
-  const lines = text.split(/\r?\n/).map(t => t.trim()).filter(Boolean);
-  if (!lines.length) return [];
-  const cues = [];
-  const timestampRegex = /\[(\d+):(\d+(?:\.\d+)?)\](.*)/;
-  const now = Number(duration) > 0 ? Number(duration) : 0;
-  let currentTime = 0;
-  for (const line of lines) {
-    const match = line.match(timestampRegex);
-    if (match) {
-      const [, min, sec, content] = match;
-      currentTime = Number(min) * 60 + Number(sec);
-      if (content.trim()) cues.push({ time: currentTime, text: content.trim(), duration: Math.max(2.5, Math.min(6, (now || 6) / 2)) });
-      continue;
-    }
-    cues.push({ time: currentTime, text: line, duration: Math.max(2.5, Math.min(6, (now || 6) / 2)) });
-    currentTime += 2.5;
-  }
-  return cues;
-}
-
-function clipCues(cues, start, duration, songLength) {
-  if (!Array.isArray(cues)) return [];
-  const list = cues
-    .map(c => ({ ...c, time: Number(c.time) || 0, duration: Number(c.duration) || 2.5 }))
-    .filter(c => Number.isFinite(c.time) && c.text)
-    .filter(c => c.time >= start && c.time <= (Number(songLength) || Infinity));
-  const maxAllowed = Math.max(0, Number(duration) || 0);
-  const output = [];
-  for (const c of list) {
-    const cueStart = c.time;
-    const cueEnd = cueStart + c.duration;
-    if (cueEnd < start) continue;
-    if (cueStart > start + maxAllowed) continue;
-    output.push({ ...c, time: cueStart });
-  }
-  return output;
 }
 
 function parseOptions(input) {
@@ -129,6 +175,7 @@ function parseOptions(input) {
     let duration = 30;
     let start = 0;
     const first = segments[0]?.trim() || '';
+
     if (/^text$/i.test(first)) {
       if (segments[1] && /^\d+:\d+$/i.test(segments[1])) {
         start = parseTimeToSeconds(segments[1]);
@@ -137,10 +184,12 @@ function parseOptions(input) {
         duration = Number(segments[2]);
       }
     }
+
     const lines = text.split(/\s*\|\s*/).filter(Boolean);
     const cleanText = lines.length ? lines.join('\n') : text;
     const startMatch = cleanText.match(/\[(\d+):(\d+(?:\.\d+)?)\]/g);
     if (startMatch && startMatch.length) start = Math.min(start, parseTimeToSeconds(startMatch[0]));
+
     return {
       manual: true,
       query: '',
@@ -189,20 +238,6 @@ function parseOptions(input) {
   };
 }
 
-function parseTimeToSeconds(value) {
-  if (typeof value !== 'string') return 0;
-  const match = value.match(/^(?:(\d+):)?(\d+)(?:\.(\d+))?$/);
-  if (!match) return 0;
-  const [, minutes, secs, frac] = match;
-  const seconds = Number(secs) + (minutes ? Number(minutes) * 60 : 0);
-  return Number((seconds + (frac ? Number(`0.${frac}`) : 0)).toFixed(2));
-}
-
-function clampDuration(value) {
-  const num = Number(value) || 30;
-  return Math.min(60, Math.max(5, num));
-}
-
 function buildMediaShim() {
   const ffmpeg = resolveFfmpeg();
 
@@ -210,7 +245,6 @@ function buildMediaShim() {
     fail(error) {
       return error instanceof Error ? error : new Error(typeof error === 'string' ? error : 'Media processing failed.');
     },
-
     parseOptions,
     manualCues,
     parseLrc,
@@ -227,23 +261,23 @@ function buildMediaShim() {
       const items = (results?.all || []).filter(item => item && item.url && item.title);
       const best = items[0];
       if (!best) throw new Error('No YouTube result found for that search.');
-      const seconds = Number(best.seconds || best.duration || 0) || 0;
       return {
         url: best.url,
         videoTitle: best.title,
-        seconds,
+        seconds: Number(best.seconds || best.duration || 0) || 0,
         trackName: best.title,
         artistName: artist || 'Unknown artist'
       };
     },
 
-    async downloadMusic(url, outputPath, settings = {}) {
+    async downloadMusic(url, outputPath) {
       if (!url) throw new Error('No music URL was provided.');
       const stream = ytdl(url, {
         quality: 'highestaudio',
         filter: 'audioonly',
         highWaterMark: 1 << 25
       });
+
       await new Promise((resolve, reject) => {
         const file = fs.createWriteStream(outputPath);
         stream.on('error', reject);
@@ -251,6 +285,7 @@ function buildMediaShim() {
         file.on('finish', resolve);
         stream.pipe(file);
       });
+
       return outputPath;
     },
 
@@ -300,24 +335,29 @@ function buildMediaShim() {
       };
     },
 
-    async render({ dir, audio, cues, start, duration, color, ffmpeg: ffmpegBin, settings }) {
+    async render({ dir, audio, cues, start, duration, color, ffmpeg: ffmpegBin }) {
       const bgColor = color === 'green' ? '0x86ff6a' : 'white';
-      const textColor = color === 'green' ? 'black' : 'black';
+      const textColor = 'black';
       const safeCues = Array.isArray(cues) ? cues.filter(c => c && c.text) : [];
       const output = path.join(dir, 'brat-lyrics.mp4');
+      const durationSeconds = Math.max(5, Number(duration) || 5);
       const filterParts = [];
-      for (let index = 0; index < safeCues.length; index++) {
-        const cue = safeCues[index];
+
+      for (const cue of safeCues) {
         const text = escapeFilterString(String(cue.text || '').replace(/\n/g, ' '));
         const tStart = Number(cue.time || 0) - Number(start || 0);
         const tEnd = tStart + Math.max(2.5, Number(cue.duration || 2.5));
         filterParts.push(`drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${text}':fontcolor=${textColor}:fontsize=52:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,${tStart},${tEnd})'`);
       }
-      const filterText = filterParts.length ? filterParts.join(',') : `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${escapeFilterString('Your lyrics') }':fontcolor=${textColor}:fontsize=52:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,0,${Math.max(2.5, Number(duration) || 5)})'`;
+
+      const filterText = filterParts.length
+        ? filterParts.join(',')
+        : `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${escapeFilterString('Your lyrics')}':fontcolor=${textColor}:fontsize=52:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,0,${durationSeconds})'`;
+
       const cmd = [
         '-y',
         '-f', 'lavfi',
-        '-i', `color=c=${bgColor}:s=1280x720:d=${Math.max(5, Number(duration) || 5)}`,
+        '-i', `color=c=${bgColor}:s=1280x720:d=${durationSeconds}`,
         '-i', audio,
         '-filter_complex', `${filterText}[v0];[v0]format=yuv420p[v]`,
         '-map', '[v]',
@@ -329,6 +369,7 @@ function buildMediaShim() {
         '-movflags', '+faststart',
         output
       ];
+
       execFileSync(ffmpegBin || ffmpeg, cmd, { stdio: 'inherit' });
       return output;
     }
@@ -357,7 +398,9 @@ function send(api, event, message) {
     if (stream) stream.once?.('error', onError);
     try {
       const pending = api.sendMessage(message, event.threadID, finish, event.messageID);
-      if (pending && typeof pending.then === 'function') pending.then(info => { if (info) finish(null, info); }, finish);
+      if (pending && typeof pending.then === 'function') {
+        pending.then(info => { if (info) finish(null, info); }, finish);
+      }
     } catch (e) {
       finish(e);
     }
@@ -393,6 +436,7 @@ async function produce(api, event, options, audioUrl) {
 
   busy.add(user);
   let directory, stream;
+
   try {
     const settings = global.config?.bratLyrics || {};
     const binaries = await media.ensureTools(settings);
@@ -418,6 +462,7 @@ async function produce(api, event, options, audioUrl) {
     let track = null;
     let shift = 0;
     let how = 'manual';
+
     if (!options.manual) {
       ({ lyrics: track, shift, how } = await media.syncLyrics(item, audio, length || item.seconds, directory, settings, binaries.ffmpeg, { isResult: !audioUrl }));
     }
@@ -470,29 +515,11 @@ module.exports = {
       const media = getMedia();
       const options = media.parseOptions(input);
       const audioUrl = attachment(event);
+
       if (options.manual && !audioUrl) {
         throw Object.assign(new Error('Reply to a music/audio file or a video with sound, then use bratlyrics text | your lyrics.'), { forUser: true });
       }
-      await produce(api, event, options, audioUrl);
-    } catch (error) {
-      await report(api, event, error);
-    }
-  },
 
-  onReply: async function ({ api, event, Reply }) {
-    if (!Reply || !Reply.shouldContinue) return;
-    if (Reply.command !== 'bratlyrics') return;
-
-    const input = (event.body || '').trim();
-    if (!input) return;
-
-    try {
-      const media = getMedia();
-      const options = media.parseOptions(input);
-      const audioUrl = attachment(event);
-      if (options.manual && !audioUrl) {
-        throw Object.assign(new Error('Reply to a music/audio file or a video with sound, then use bratlyrics text | your lyrics.'), { forUser: true });
-      }
       await produce(api, event, options, audioUrl);
     } catch (error) {
       await report(api, event, error);
@@ -501,4 +528,4 @@ module.exports = {
 };
 
 module.exports.run = module.exports.onStart;
-module.exports.config = commandConfig;
+module.exports.ST = module.exports.onStart;
