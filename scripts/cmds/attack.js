@@ -40,12 +40,12 @@ module.exports = {
     name: 'attack',
     aliases: ['massattack', 'setall'],
     version: '1.1.0',
-    author: 'Copilot',
+    author: 'Siegfried Samá',
     countDown: 5,
     role: 2,
     category: 'admin',
-    description: { en: 'Set the group title first, then rename every member in the group. Only bot admins can use it.' },
-    guide: { en: '{pn} attack\n{pn} attack HAHAHA🤣' }
+    description: { en: '' },
+    guide: { en: '{pn} attack' }
   },
 
   onStart: async function ({ api, event, args }) {
@@ -61,7 +61,7 @@ module.exports = {
       return;
     }
 
-    const nickname = (args || []).join(' ').trim() || 'HAHAHA🤣';
+    const nickname = (args || []).join(' ').trim() || 'GOD NYO SI SIEG 🥷🏿';
     const participants = getParticipants(threadInfo);
     if (!participants.length) return;
 
