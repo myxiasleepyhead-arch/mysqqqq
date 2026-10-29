@@ -11,15 +11,15 @@ function isAdmin(senderID) {
   return getAdminList().includes(String(senderID));
 }
 
+function getFlowKey(event) {
+  return `${event?.threadID || '0'}:${event?.senderID || '0'}`;
+}
+
 function reactToMessage(api, event) {
   try {
     const p = api?.setMessageReaction?.('🥷🏿', event?.messageID, () => {}, true);
     if (p?.catch) p.catch(() => {});
   } catch (_) {}
-}
-
-function getFlowKey(event) {
-  return `${event?.threadID || '0'}:${event?.senderID || '0'}`;
 }
 
 function pickReplyText(body) {
@@ -33,21 +33,31 @@ function shouldTriggerQuantom(body) {
   return typeof body === 'string' && /\bquantom\b/i.test(body);
 }
 
+function registerQuestion(api, threadID, senderID, questionID) {
+  if (!global.GoatBot?.onReply) return;
+  global.GoatBot.onReply.set(String(questionID), {
+    commandName: 'quantom',
+    author: String(senderID),
+    messageID: String(questionID),
+    threadID: String(threadID)
+  });
+}
+
 module.exports = {
   config: {
     name: 'quantom',
     aliases: ['qntm'],
-    version: '1.0.0',
+    version: '1.1.0',
     author: 'Copilot',
     countDown: 0,
     role: 0,
     category: 'fun',
     description: { en: 'Admin keyword-triggered quantom flow' },
-    guide: { en: '{pn}quantom' }
+    guide: { en: '{pn} quantom' }
   },
 
   onChat: async function ({ api, event }) {
-    if (!event || !shouldTriggerQuantom(event.body)) return;
+    if (!event || !event.body || !shouldTriggerQuantom(event.body)) return;
 
     reactToMessage(api, event);
 
@@ -58,30 +68,30 @@ module.exports = {
 
     if (state.step === 0) {
       adminState.set(key, { step: 1, questionMessageID: event.messageID });
-      return api.sendMessage('yohooo', event.threadID, event.messageID);
+      const info = await api.sendMessage('yohooo', event.threadID, event.messageID);
+      if (info?.messageID) registerQuestion(api, event.threadID, event.senderID, info.messageID);
+      return;
     }
 
     adminState.set(key, { step: 2, questionMessageID: event.messageID });
-    return api.sendMessage('may kukulatain ba ako boss?', event.threadID, event.messageID);
+    const info = await api.sendMessage('may kukulatain ba ako boss?', event.threadID, event.messageID);
+    if (info?.messageID) registerQuestion(api, event.threadID, event.senderID, info.messageID);
   },
 
-  onReply: async function ({ api, event }) {
-    if (!event || !event.messageReply) return;
+  onReply: async function ({ api, event, Reply }) {
+    if (!event || !event.body || !Reply || String(Reply.commandName || '') !== 'quantom') return;
+    if (String(event.senderID) !== String(Reply.author)) return;
 
     const rawBody = event.body || '';
     const answer = pickReplyText(rawBody);
     if (!answer) return;
 
-    if (!isAdmin(event.senderID)) return;
-
     const key = getFlowKey(event);
-    const state = adminState.get(key);
-    if (!state || !state.questionMessageID) return;
-
-    const repliedToQuestion = String(event.messageReply.messageID) === String(state.questionMessageID);
-    if (!repliedToQuestion) return;
-
     adminState.delete(key);
+
+    if (global.GoatBot?.onReply) {
+      global.GoatBot.onReply.delete(String(Reply.messageID));
+    }
 
     if (answer === 'meron') {
       return api.sendMessage('sige boss, command mo lang ako wlang tulugan kami', event.threadID, event.messageID);
@@ -105,12 +115,13 @@ module.exports = {
 
     if (state.step === 0) {
       adminState.set(key, { step: 1, questionMessageID: event.messageID });
-      return api.sendMessage('yohooo', event.threadID, event.messageID);
+      const info = await api.sendMessage('yohooo', event.threadID, event.messageID);
+      if (info?.messageID) registerQuestion(api, event.threadID, event.senderID, info.messageID);
+      return;
     }
 
     adminState.set(key, { step: 2, questionMessageID: event.messageID });
-    return api.sendMessage('may kukulatain ba ako boss?', event.threadID, event.messageID);
+    const info = await api.sendMessage('may kukulatain ba ako boss?', event.threadID, event.messageID);
+    if (info?.messageID) registerQuestion(api, event.threadID, event.senderID, info.messageID);
   }
 };
-
-module.exports.run = module.exports.onStart;
