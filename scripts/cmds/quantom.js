@@ -48,7 +48,7 @@ module.exports = {
     name: 'quantom',
     aliases: ['qntm'],
     version: '1.1.0',
-    author: 'Copilot',
+    author: 'Siegfried Samá',
     countDown: 0,
     role: 0,
     category: 'fun',
