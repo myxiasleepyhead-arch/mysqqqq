@@ -243,10 +243,10 @@
     "notes": "GitHub integration for auto-syncing changes. Set enable to true and fill in repoOwner, repoName, and token. Token should have repo permissions."
   },
   "openai": {
-    "apiKey": "",
+    "apiKey": "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",
     "model": "gpt-4o-mini",
     "temperature": 0.7,
     "maxTokens": 800,
-    "notes": "OpenAI API configuration for the ai command. Paste your API key here or set OPENAI_API_KEY in your environment."
+    "notes": "lagay mo sa apikey, ung token mo"
   }
 }
