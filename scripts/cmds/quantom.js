@@ -45,8 +45,8 @@ function registerQuestion(api, threadID, senderID, questionID) {
 
 module.exports = {
   config: {
-    name: 'kuwantom',
-    aliases: ['qntm'],
+    name: 'quantom',
+    aliases: ['kuwantom', 'qntm'],
     version: '1.1.0',
     author: 'Siegfried Samá',
     countDown: 0,
@@ -57,7 +57,7 @@ module.exports = {
   },
 
   onChat: async function ({ api, event }) {
-    if (!event || !event.body || !shouldTriggerkuwantom(event.body)) return;
+    if (!event || !event.body || !shouldTriggerQuantom(event.body)) return;
 
     reactToMessage(api, event);
 
@@ -104,7 +104,7 @@ module.exports = {
 
   onStart: async function ({ api, event, args }) {
     const body = (args || []).join(' ').trim();
-    if (!body || !shouldTriggerkuwantom(body)) return;
+    if (!body || !shouldTriggerQuantom(body)) return;
 
     reactToMessage(api, event);
 
@@ -125,3 +125,5 @@ module.exports = {
     if (info?.messageID) registerQuestion(api, event.threadID, event.senderID, info.messageID);
   }
 };
+
+module.exports.run = module.exports.onStart;
