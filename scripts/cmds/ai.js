@@ -20,7 +20,7 @@ module.exports = {
     name: 'ai',
     aliases: ['gpt', 'chatgpt', 'openai'],
     version: '1.0.0',
-    author: 'Copilot',
+    author: 'Siegfried Samá',
     countDown: 5,
     role: 0,
     category: 'tools',
@@ -28,7 +28,7 @@ module.exports = {
       en: 'Ask OpenAI from the bot'
     },
     guide: {
-      en: '{pn} ai <your question>'
+      en: '{pn} ai'
     }
   },
 
@@ -36,14 +36,17 @@ module.exports = {
     const question = (args || []).join(' ').trim();
 
     if (!question) {
-      return message ? message.reply('Use: ai <your question>') : api.sendMessage('Use: ai <your question>', event.threadID, event.messageID);
+      return message
+        ? message.reply('tanongin moko')
+        : api.sendMessage('tanongin moko', event.threadID, event.messageID);
     }
 
     const openaiConfig = getOpenAIConfig();
+
     if (!openaiConfig.apiKey) {
       return message
-        ? message.reply('OpenAI API key is missing. Put it in config.json under openai.apiKey or set OPENAI_API_KEY in the environment.')
-        : api.sendMessage('OpenAI API key is missing. Put it in config.json under openai.apiKey or set OPENAI_API_KEY in the environment.', event.threadID, event.messageID);
+        ? message.reply('lagay mo sa config ung apikey mo')
+        : api.sendMessage('lagay mo sa config apkey mo', event.threadID, event.messageID);
     }
 
     try {
