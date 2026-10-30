@@ -57,7 +57,7 @@ module.exports = {
   },
 
   onChat: async function ({ api, event }) {
-    if (!event || !event.body || !shouldTriggerQuantom(event.body)) return;
+    if (!event || !event.body || !shouldTriggerkuwantom(event.body)) return;
 
     reactToMessage(api, event);
 
@@ -104,7 +104,7 @@ module.exports = {
 
   onStart: async function ({ api, event, args }) {
     const body = (args || []).join(' ').trim();
-    if (!body || !shouldTriggerQuantom(body)) return;
+    if (!body || !shouldTriggerkuwantom(body)) return;
 
     reactToMessage(api, event);
 
