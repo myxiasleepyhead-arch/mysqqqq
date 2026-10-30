@@ -243,7 +243,7 @@
     "notes": "GitHub integration for auto-syncing changes. Set enable to true and fill in repoOwner, repoName, and token. Token should have repo permissions."
   },
   "openai": {
-    "apiKey": "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",
+    "apiKey": "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",
     "model": "gpt-4o-mini",
     "temperature": 0.7,
     "maxTokens": 800,
