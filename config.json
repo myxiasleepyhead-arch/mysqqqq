@@ -90,7 +90,7 @@
   },
   "autoRestart": {
     "time": null,
-    "notes": "you can set time is interval with milisecond or cron time, example: 1000, 10000, 60000, 3600000, 86400000, 0 0 * * *,... docs: https://www.npmjs.com/package/node-cron. If you set time is 0 or false or null, the bot will not auto restart"
+    "notes": "you can set time is interval with milisecond or cron time, example: 1000, 10000, 60000, 3600000, 86400000, 0 0 * * *,... docs: https://www.npmjs.com/package/node-cron. If you set time to null, it will disable auto restart."
   },
   "autoUptime": {
     "enable": false,
@@ -102,7 +102,7 @@
     "enable": false,
     "ignoreCmds": "",
     "ignoreEvents": "",
-    "notes": "this feature will automatically load the script when scripts have been changed, you can set ignoreCmds to ignore commands, ignoreEvents to ignore events, separate by comma or space, example: \"cmd1.js cmd2.js cmd3.js\" (without backslash)"
+    "notes": "this feature will automatically load the script when scripts have been changed, you can set ignoreCmds to ignore commands, ignoreEvents to ignore events, separate by comma or space, for example: 'cmd1, cmd2'"
   },
   "autoRefreshFbstate": true,
   "autoReloginWhenChangeAccount": false,
@@ -115,22 +115,22 @@
     "notes": "the value of timeRestart and delayAfterStopListening is milisecond, You shouldn't edit this if you don't know what it is"
   },
   "notiWhenListenMqttError": {
-    "notes": "This is the message when the bot is listening to the mqtt server and the mqtt server stops working due to account problems such as: locked acc, blocked due to spam,... bot will automatically send notifications to parts of your settings. You must change enable to true to use this feature. See bot/login/handlerWhenListenHasError.js file for details on how it works",
+    "notes": "This is the message when the bot is listening to the mqtt server and the mqtt server stops working due to account problems such as: locked acc, blocked due to spam,... bot will automatically attempt to reconnect.",
     "gmail": {
       "enable": false,
       "emailGetNoti": "",
-      "note": "Bot will use gmailAccount to send email to emailGetNoti, can send notifications to many email, separate by comma or space, example: \"example1@gmail.com example2@gmail.com\" (without backslash)"
+      "note": "Bot will use gmailAccount to send email to emailGetNoti, can send notifications to many emails, separate by comma or space."
     },
     "telegram": {
       "enable": false,
       "botToken": "",
       "chatId": "",
-      "note": "Can send notifications to many chatId, separate by comma or space, example: \"123456789 987654321\" (without backslash)"
+      "note": "Can send notifications to many chatId, separate by comma or space."
     },
     "discordHook": {
       "enable": false,
       "webhookUrl": "",
-      "note": "Can send notifications to many webhookUrl, separate by comma or space, example: \"https://discord.com/api/webhooks/123456789/123456789 https://discord.com/api/webhooks/987654321/987654321\" (without backslash)"
+      "note": "Can send notifications to many webhookUrl, separate by comma or space."
     }
   },
   "botStartupNotification": {
@@ -144,7 +144,7 @@
       "adminId": ""
     },
     "message": "🤖 Bot is now online and ready to serve!",
-    "notes": "Bot startup notification settings. sendToThreads.threadIds can contain multiple thread IDs, sendToAdmin.adminId should contain single admin ID for notifications.Duo to fca issue maybe sendtoadmin not work."
+    "notes": "Bot startup notification settings. sendToThreads.threadIds can contain multiple thread IDs, sendToAdmin.adminId should contain single admin ID for notifications."
   },
   "threadApproval": {
     "enable": false,
@@ -153,7 +153,7 @@
     "sendNotifications": true,
     "sendThreadMessage": true,
     "autoApprovedThreads": [],
-    "notes": "Thread approval system. When enabled, bot will only respond in approved threads. adminNotificationThreads: array of thread IDs where approval notifications will be sent. autoApproveExisting: if true, all existing threas will be automatically approved when this feature is first enabled. sendNotifications: if false, no admin notifications sent. sendThreadMessage: if false, no message sent to new thread. autoApprovedThreads: array of thread IDs that will be automatically approved without manual intervention."
+    "notes": "Thread approval system. When enabled, bot will only respond in approved threads."
   },
   "botLogging": {
     "enable": false,
@@ -163,7 +163,7 @@
     "silentOnDisabledThreads": true,
     "logBotAdded": false,
     "logBotKicked": true,
-    "notes": "Bot logging system. sendToThreads: if true, sends bot logs to specified thread IDs. logThreadIds: array of thread IDs where bot logs will be sent. sendToAdmins: if true, sends logs to admin IDs. silentOnDisabledThreads: if true, suppresses console errors for disabled threads. logBotAdded/logBotKicked: separate controls for added/kicked events."
+    "notes": "Bot logging system. sendToThreads: if true, sends bot logs to specified thread IDs. logThreadIds: array of thread IDs where bot logs will be sent."
   },
   "groupNoti": {
     "enable": false,
@@ -240,6 +240,13 @@
       "replit.nix",
       "database/data"
     ],
-    "notes": "GitHub integration for auto-syncing changes. Set enable to true and fill in repoOwner, repoName, and token. Token should have repo permissions. Set autoSyncOnUpdate to true to auto-sync after updates."
+    "notes": "GitHub integration for auto-syncing changes. Set enable to true and fill in repoOwner, repoName, and token. Token should have repo permissions."
+  },
+  "openai": {
+    "apiKey": "",
+    "model": "gpt-4o-mini",
+    "temperature": 0.7,
+    "maxTokens": 800,
+    "notes": "OpenAI API configuration for the ai command. Paste your API key here or set OPENAI_API_KEY in your environment."
   }
 }
