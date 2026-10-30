@@ -45,7 +45,7 @@ function registerQuestion(api, threadID, senderID, questionID) {
 
 module.exports = {
   config: {
-    name: 'quantom',
+    name: 'kuwantom',
     aliases: ['qntm'],
     version: '1.1.0',
     author: 'Siegfried Samá',
