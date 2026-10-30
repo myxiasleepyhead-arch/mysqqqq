@@ -7,9 +7,17 @@ function getOpenAIConfig() {
     || (global.config && global.config.openai)
     || {};
 
+  const apiKey = String(
+    process.env.OPENAI_API_KEY || cfg.apiKey || ''
+  ).trim();
+
+  const model = String(
+    process.env.OPENAI_MODEL || cfg.model || 'gpt-4o-mini'
+  ).trim();
+
   return {
-    apiKey: cfg.apiKey || process.env.OPENAI_API_KEY || '',
-    model: cfg.model || process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    apiKey,
+    model,
     temperature: Number(cfg.temperature ?? 0.7),
     maxTokens: Number(cfg.maxTokens ?? 800)
   };
@@ -24,12 +32,8 @@ module.exports = {
     countDown: 5,
     role: 0,
     category: 'tools',
-    description: {
-      en: 'Ask OpenAI from the bot'
-    },
-    guide: {
-      en: '{pn} ai'
-    }
+    description: { en: 'Ask OpenAI from the bot' },
+    guide: { en: '{pn} ai' }
   },
 
   onStart: async function ({ api, event, args, message }) {
@@ -45,8 +49,8 @@ module.exports = {
 
     if (!openaiConfig.apiKey) {
       return message
-        ? message.reply('lagay mo sa config ung apikey mo')
-        : api.sendMessage('lagay mo sa config apkey mo', event.threadID, event.messageID);
+        ? message.reply('OpenAI API key is missing. Set OPENAI_API_KEY in Railway.')
+        : api.sendMessage('OpenAI API key is missing. Set OPENAI_API_KEY in Railway.', event.threadID, event.messageID);
     }
 
     try {
