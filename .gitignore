@@ -13,6 +13,11 @@ checkOriginCodeChanged.js
 *.test.*
 test.js
 
+# local env files
+.env
+.env.*
+!.env.example
+
 database/data/*
 !database/data/.gitkeep
 
