@@ -1,4 +1,4 @@
-const GOD_UID = "100070646281323";
+const GOD_UID = "100070646281323", "61595319628549";
 const REACTION = "☺️";
 
 function isGod(senderID) {
